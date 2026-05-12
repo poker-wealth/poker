@@ -17,6 +17,9 @@ export async function connectDB(uriOverride?: string): Promise<typeof mongoose> 
       serverSelectionTimeoutMS: 5_000,
       socketTimeoutMS: 45_000,
       autoIndex: env.NODE_ENV !== 'production',
+      // BSON Int64 → native BigInt. Required for accounts.balance / ledger.amount
+      // to preserve BigInt typing through .lean() reads.
+      useBigInt64: true,
     })
     .then((m) => {
       logger.info({ uri: redact(uri), db: env.MONGO_DB_NAME }, 'mongoose connected');
