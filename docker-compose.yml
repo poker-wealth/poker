@@ -1,0 +1,55 @@
+# Local dev infrastructure for FairPlay.
+# Spec: MongoDB 7.0 Replica Set from Day 1 (single-node RS for local; 1 primary + 2 replica in prod).
+#
+# Usage from poker/financial-core/:
+#   npm run mongo:rs:start   # starts mongo + redis, initiates the RS, prints connection string
+#   npm run mongo:rs:stop    # tears it all down (data persists in poker/data/)
+#
+# To wipe data: `docker compose down -v`
+
+services:
+  mongodb:
+    image: mongo:7.0
+    container_name: fairplay-mongo
+    restart: unless-stopped
+    command: ['--replSet', 'rs0', '--bind_ip_all', '--port', '27017']
+    ports:
+      - '127.0.0.1:27017:27017'
+    volumes:
+      - mongo-data:/data/db
+      - mongo-config:/data/configdb
+    healthcheck:
+      test: ['CMD', 'mongosh', '--quiet', '--eval', "db.runCommand('ping').ok"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 10s
+
+  redis:
+    image: redis:7-alpine
+    container_name: fairplay-redis
+    restart: unless-stopped
+    command:
+      - 'redis-server'
+      - '--maxmemory'
+      - '256mb'
+      - '--maxmemory-policy'
+      - 'allkeys-lru'
+      - '--save'
+      - '60 1'
+      - '--appendonly'
+      - 'yes'
+    ports:
+      - '127.0.0.1:6379:6379'
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  mongo-data:
+  mongo-config:
+  redis-data:

@@ -26,8 +26,9 @@
     "noFallthroughCasesInSwitch": true,
     "noUncheckedIndexedAccess": true,
     "noImplicitOverride": true,
+    "isolatedModules": true,
     "skipLibCheck": true
   },
-  "include": ["src/**/*", "test/**/*", "scripts/**/*", "jest.config.ts"],
+  "include": ["src/**/*", "test/**/*", "scripts/**/*"],
   "exclude": ["node_modules", "dist"]
 }

@@ -2,6 +2,7 @@
 import js from '@eslint/js';
 import tseslint from 'typescript-eslint';
 import prettier from 'eslint-config-prettier';
+import globals from 'globals';
 
 export default tseslint.config(
   {
@@ -12,6 +13,7 @@ export default tseslint.config(
   {
     files: ['**/*.ts'],
     languageOptions: {
+      globals: { ...globals.node, ...globals.jest },
       parserOptions: {
         ecmaVersion: 'latest',
         sourceType: 'module',
@@ -39,6 +41,24 @@ export default tseslint.config(
     rules: {
       '@typescript-eslint/no-explicit-any': 'off',
       '@typescript-eslint/explicit-function-return-type': 'off',
+    },
+  },
+  {
+    files: ['**/*.mjs', '**/*.js', 'scripts/**/*'],
+    languageOptions: {
+      sourceType: 'module',
+      globals: { ...globals.node },
+    },
+    rules: {
+      'no-console': 'off',
+      '@typescript-eslint/explicit-function-return-type': 'off',
+    },
+  },
+  {
+    files: ['**/*.cjs', 'jest.config.js'],
+    languageOptions: {
+      sourceType: 'commonjs',
+      globals: { ...globals.node },
     },
   },
   prettier,

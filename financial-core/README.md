@@ -29,18 +29,35 @@ Direct DB writes to balance fields are prohibited.
 ## Quick start
 
 ```bash
-cp .env.example .env       # fill in secrets
+cp .env.example .env                   # fill in secrets (JWT_SECRET, etc.)
 npm install
-npm run mongo:rs:start     # bootstraps a local single-node Replica Set
-npm run dev                # tsx watch on src/index.ts
 ```
 
-Run tests:
+### Run tests
+
+Tests use `mongodb-memory-server`'s in-process Replica Set — no Docker or local Mongo required. The first run downloads a Mongo binary (~120 MB) and caches it.
 
 ```bash
-npm test
+npm test                               # runs the full suite
 npm run test:coverage
 ```
+
+### Run the dev server (needs MongoDB + Redis)
+
+The dev server connects to a real Replica Set. Two paths to bring one up locally:
+
+**Path A — Docker (recommended):** install [Docker Desktop](https://www.docker.com/products/docker-desktop/), then from the `poker/` umbrella:
+
+```bash
+cd ../                                 # poker/
+docker compose up -d mongodb redis     # or just `npm run mongo:rs:start` from financial-core/
+cd financial-core
+npm run mongo:rs:start                 # idempotent: starts containers + initiates rs0
+npm run dev                            # tsx watch on src/index.ts
+npm run mongo:rs:stop                  # tears down containers (data persists in named volumes)
+```
+
+**Path B — Native MongoDB 7.0:** install MongoDB Community 7.0, then start it with `--replSet rs0` and run `rs.initiate()` manually in `mongosh`. Update `MONGO_URI` in `.env`.
 
 ## CI gates
 
