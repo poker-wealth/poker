@@ -3,6 +3,7 @@ import mongoose from 'mongoose';
 import { logger } from '../lib/logger.js';
 import { Ledger, type LedgerDoc } from '../wallet/ledger.model.js';
 import { IdempotentReplay, applyTransfer } from '../wallet/transfer.js';
+import { settlementEvents } from './events.js';
 import { getPlayerWalletScope, getRakeDestination, type TableType } from './settlement-domain.js';
 
 /**
@@ -179,7 +180,9 @@ export async function settleRound(input: SettleRoundInput): Promise<SettleRoundR
     idempotency_key: payoutKey(input.roundId, input.losers[0]!.ownerId),
   }).lean<LedgerDoc>();
   if (replayProbe) {
-    return loadExistingReceipt(input, jackpot, walletScope, rakeDest);
+    const receipt = await loadExistingReceipt(input, jackpot, walletScope, rakeDest);
+    settlementEvents.emit('replayed', receipt);
+    return receipt;
   }
 
   const sequence: string[] = [];
@@ -277,7 +280,9 @@ export async function settleRound(input: SettleRoundInput): Promise<SettleRoundR
     if (err instanceof IdempotentReplay) {
       // Race lost — another caller settled this round between our replay-probe
       // and our tx. Reload and return.
-      return loadExistingReceipt(input, jackpot, walletScope, rakeDest);
+      const receipt = await loadExistingReceipt(input, jackpot, walletScope, rakeDest);
+      settlementEvents.emit('replayed', receipt);
+      return receipt;
     }
     throw err;
   } finally {
@@ -310,7 +315,23 @@ export async function settleRound(input: SettleRoundInput): Promise<SettleRoundR
     },
     ledgerEntryIds,
   };
-  return { ...base, hash: computeReceiptHash(base), durationMs, replayed: false };
+  const receipt: SettleRoundReceipt = {
+    ...base,
+    hash: computeReceiptHash(base),
+    durationMs,
+    replayed: false,
+  };
+
+  // Phase 2 hook — fires AFTER tx commit. Listeners (M2+: Solana commitRound,
+  // jackpot snapshot maintainer, rake aggregator) MUST be non-throwing or
+  // they'll surface as unhandled rejections. We deliberately don't await.
+  try {
+    settlementEvents.emit('settled', receipt);
+  } catch (err) {
+    logger.error({ err, roundId: input.roundId }, 'settlement event listener threw');
+  }
+
+  return receipt;
 }
 
 async function loadExistingReceipt(
