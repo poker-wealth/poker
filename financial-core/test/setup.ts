@@ -6,4 +6,5 @@ process.env.MONGO_URI ??= 'mongodb://127.0.0.1:27017/placeholder?replicaSet=rs0'
 process.env.MONGO_DB_NAME ??= 'fairplay-fc-test';
 process.env.REDIS_URL ??= 'redis://127.0.0.1:6379';
 process.env.JWT_SECRET ??= 'test-secret-test-secret-test-secret';
+process.env.INTERNAL_API_TOKEN ??= 'test-internal-token-test-internal-token';
 process.env.LOG_LEVEL ??= 'warn';

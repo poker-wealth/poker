@@ -112,7 +112,6 @@ describe('acceptance/M1 — 50-table concurrent settlement', () => {
     const median = durations[Math.floor(N / 2)] ?? 0;
     const p99 = durations[Math.floor(N * 0.99)] ?? 0;
     const max = durations[N - 1] ?? 0;
-    // eslint-disable-next-line no-console
     console.error(
       `[Scenario A — no contention] wall=${wallTimeMs}ms ` +
         `median=${median}ms p99=${p99}ms max=${max}ms`,
@@ -188,7 +187,6 @@ describe('acceptance/M1 — 50-table concurrent settlement', () => {
     const median = durations[Math.floor(N / 2)] ?? 0;
     const p99 = durations[Math.floor(N * 0.99)] ?? 0;
     const max = durations[N - 1] ?? 0;
-    // eslint-disable-next-line no-console
     console.error(
       `[Scenario B — TREASURY contention] wall=${wallTimeMs}ms ` +
         `median=${median}ms p99=${p99}ms max=${max}ms\n` +
