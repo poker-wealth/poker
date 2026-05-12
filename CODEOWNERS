@@ -1,0 +1,19 @@
+# CODEOWNERS — enforces the spec's "2-reviewer" rule on critical paths.
+# Format: path  @user1 @user2
+# Pair with branch protection on main: require approvals from CODEOWNERS.
+#
+# Update the @placeholder handles once the team is assembled. The current solo-dev
+# state means the rule is policy-only; CI still runs on every PR.
+
+# Financial Core — spec mandates min 2-person code review for any change.
+/financial-core/                              @poker-wealth/fc-leads
+/financial-core/src/clearing/                 @poker-wealth/fc-leads @poker-wealth/security
+/financial-core/src/settlement/               @poker-wealth/fc-leads @poker-wealth/security
+/financial-core/src/wallet/                   @poker-wealth/fc-leads @poker-wealth/security
+
+# CI / workflows — infra owns
+/.github/                                     @poker-wealth/infra-leads
+
+# Docs / specs — product owns
+*.docx                                        @poker-wealth/product
+README.md                                     @poker-wealth/product

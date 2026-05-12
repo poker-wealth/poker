@@ -1,0 +1,55 @@
+name: financial-core CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'financial-core/**'
+      - '.github/workflows/financial-core-ci.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'financial-core/**'
+      - '.github/workflows/financial-core-ci.yml'
+
+# Iron rule: Financial Core requires 2-reviewer code review (enforced via branch
+# protection on main + CODEOWNERS). This workflow runs lint, typecheck, and tests.
+# It is a required check; merge blocked unless green.
+
+jobs:
+  ci:
+    name: lint + typecheck + test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: financial-core
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20 LTS
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: financial-core/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npm test
+        env:
+          NODE_ENV: test
+          MONGO_URI: mongodb://127.0.0.1:27017/fairplay-fc-test?replicaSet=rs0&directConnection=true
+          MONGO_DB_NAME: fairplay-fc-test
+          REDIS_URL: redis://127.0.0.1:6379
+          JWT_SECRET: test-secret-test-secret-test-secret
