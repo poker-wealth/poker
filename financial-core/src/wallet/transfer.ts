@@ -1,5 +1,6 @@
 import mongoose, { type ClientSession } from 'mongoose';
-import { assertFlowAllowed } from '../clearing/clearing-rules.js';
+import { IllegalFundFlowError, assertFlowAllowed } from '../clearing/clearing-rules.js';
+import { securityEvents } from '../circuit-breakers/security-events.js';
 import { PLATFORM_OWNER, validateOwnerForType } from '../domain/account-types.js';
 import { logger } from '../lib/logger.js';
 import { Account, type AccountDoc } from './account.model.js';
@@ -65,11 +66,23 @@ function validateInput(input: TransferInput): void {
     throw new Error('transfer(): amount must be a positive BigInt (cents)');
   }
   if (!input.idempotencyKey) throw new Error('transfer(): idempotencyKey required');
-  assertFlowAllowed({
-    fromType: input.from?.type ?? null,
-    toType: input.to?.type ?? null,
-    ledgerType: input.ledgerType,
-  });
+  try {
+    assertFlowAllowed({
+      fromType: input.from?.type ?? null,
+      toType: input.to?.type ?? null,
+      ledgerType: input.ledgerType,
+    });
+  } catch (err) {
+    if (err instanceof IllegalFundFlowError) {
+      // CB6 trigger — fire-and-forget security event before re-throwing.
+      securityEvents.emit('illegal_fund_flow', {
+        error: err,
+        idempotencyKey: input.idempotencyKey,
+        amount: input.amount,
+      });
+    }
+    throw err;
+  }
   if (input.from) assertRefValid(input.from, 'from');
   if (input.to) assertRefValid(input.to, 'to');
 }
