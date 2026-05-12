@@ -4,6 +4,8 @@ The single source of truth for all fund movements on the FairPlay platform.
 All games and services interact with money exclusively through `/api/v1/`.
 Direct DB writes to balance fields are prohibited.
 
+**API contract:** [docs/api-v1.md](docs/api-v1.md) — frontend / game-server build Mocks against this.
+
 > Iron rule from spec: **NO module may bypass `transfer()`. NO `UPDATE accounts SET balance = ...`. ALL flows go through the hardcoded `ClearingRules` whitelist.**
 
 ## What lives here
