@@ -44,6 +44,48 @@ describe('withdrawal/state-machine — spec §3.6', () => {
   // ───────────────────────────────────────────────────────────────────
   // Transition table sanity
   // ───────────────────────────────────────────────────────────────────
+  // Regression for the bug found 2026-05-13 in `npm run dev:memory`:
+  // sparse:true on uniq_tx_hash didn't filter null values, so creating
+  // two withdrawals (both with tx_hash=null) collided with E11000.
+  // Fix: partialFilterExpression on tx_hash type=string.
+  it('two REQUESTED withdrawals (both with null tx_hash) do NOT collide on uniq_tx_hash', async () => {
+    await Account.create({ account_type: 'PLAYER', owner_id: 'p1', balance: 100_000n });
+    const a = await createWithdrawal({
+      playerId: 'p1',
+      amount: 1_000n,
+      destinationAddress: 'TR-a',
+    });
+    const b = await createWithdrawal({
+      playerId: 'p1',
+      amount: 2_000n,
+      destinationAddress: 'TR-b',
+    });
+    expect(a._id).not.toBe(b._id);
+    expect(a.tx_hash).toBeNull();
+    expect(b.tx_hash).toBeNull();
+    expect(await Withdrawal.countDocuments({ player_id: 'p1' })).toBe(2);
+  });
+
+  it('uniq_tx_hash still rejects two non-null tx_hash values that collide', async () => {
+    await Account.create({ account_type: 'PLAYER', owner_id: 'p1', balance: 100_000n });
+    const a = await createWithdrawal({
+      playerId: 'p1',
+      amount: 1_000n,
+      destinationAddress: 'TR-a',
+    });
+    const b = await createWithdrawal({
+      playerId: 'p1',
+      amount: 2_000n,
+      destinationAddress: 'TR-b',
+    });
+    await approveWithdrawal({ withdrawalId: a._id });
+    await markBroadcasting({ withdrawalId: a._id, txHash: 'collision-test' });
+    await approveWithdrawal({ withdrawalId: b._id });
+    await expect(
+      markBroadcasting({ withdrawalId: b._id, txHash: 'collision-test' }),
+    ).rejects.toThrow(/duplicate key|E11000/);
+  });
+
   it('matches the spec §3.6 transition table exactly', () => {
     expect([...ALLOWED_NEXT.REQUESTED]).toEqual(['APPROVED', 'ROLLED_BACK']);
     expect([...ALLOWED_NEXT.APPROVED]).toEqual(['BROADCASTING']);

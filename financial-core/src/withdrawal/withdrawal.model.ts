@@ -101,9 +101,18 @@ const WithdrawalSchema = new Schema<WithdrawalDoc>(
 // Hot lookups
 WithdrawalSchema.index({ player_id: 1, state: 1, created_at: -1 }, { name: 'by_player_state' });
 WithdrawalSchema.index({ state: 1, created_at: -1 }, { name: 'by_state' });
+// Uniqueness on tx_hash, but ONLY for documents where tx_hash is a non-null
+// string. The schema defaults tx_hash to null on every withdrawal until the
+// broadcast step sets it, so a `sparse: true` index would still match all
+// the nulls and collide. `partialFilterExpression` filters by VALUE, which
+// is what we actually want.
 WithdrawalSchema.index(
   { tx_hash: 1 },
-  { unique: true, sparse: true, name: 'uniq_tx_hash' },
+  {
+    unique: true,
+    name: 'uniq_tx_hash',
+    partialFilterExpression: { tx_hash: { $type: 'string' } },
+  },
 );
 
 export const Withdrawal: Model<WithdrawalDoc> =
