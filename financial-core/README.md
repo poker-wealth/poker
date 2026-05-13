@@ -60,12 +60,28 @@ Output: 34 PASS/FAIL steps covering deposit, settlement, CB6 illegal-flow detect
 
 ### Open the demo UI
 
+Two paths — pick one.
+
+**Path A — zero install (recommended for the client demo):**
+
 ```bash
-npm run mongo:rs:start                 # bring up Mongo + Redis (requires Docker)
-npm run dev                            # boots the FC server on http://localhost:3000
+npm install                            # one time
+npm run dev:memory                     # boots the server with an in-process Mongo
 ```
 
-Open <http://localhost:3000> in a browser. Sign in as `alice` / `demo` (player), `ops` / `demo` (ops), or `admin` / `demo`. Click the buttons to exercise every M1 capability live.
+Open <http://localhost:3000> in a browser. Data is in-memory only — resets on restart. No Docker, no native Mongo install needed.
+
+**Path B — Docker (production-parity, persistent data):**
+
+```bash
+cd ../                                 # poker/
+docker compose up -d                   # starts Mongo + Redis (one-time setup)
+cd financial-core
+npm run mongo:rs:start                 # initiates the rs0 Replica Set
+npm run dev                            # http://localhost:3000
+```
+
+Either path: sign in as `alice` / `demo` (player), `ops` / `demo` (ops), or `admin` / `demo`. The 8 buttons exercise every M1 capability live.
 
 ### Run the dev server (needs MongoDB + Redis)
 
