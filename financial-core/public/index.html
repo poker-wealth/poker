@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>FairPlay — M1 Financial Core Demo</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-mark">FairPlay</span>
+        <span class="brand-tag">M1 Financial Core Demo</span>
+      </div>
+      <div class="env-pill" id="env-pill">env: loading…</div>
+    </header>
+
+    <!-- ─── Login modal ─── -->
+    <section id="login-section" class="login-card">
+      <h2>Sign in</h2>
+      <p class="muted">
+        This is a non-production demo. Available accounts:
+        <code>alice</code>, <code>bob</code> (player) ·
+        <code>ops</code> (ops) ·
+        <code>admin</code>. Password: <code>demo</code>.
+      </p>
+      <form id="login-form" autocomplete="off">
+        <div class="row">
+          <label>Username</label>
+          <input id="username" name="username" value="alice" required />
+        </div>
+        <div class="row">
+          <label>Password</label>
+          <input id="password" name="password" type="password" value="demo" required />
+        </div>
+        <button type="submit">Sign in</button>
+        <div class="error" id="login-error"></div>
+      </form>
+    </section>
+
+    <!-- ─── Main dashboard (hidden until login) ─── -->
+    <main id="dashboard" class="dashboard hidden">
+      <section class="grid">
+        <!-- Top row: identity + balance -->
+        <div class="card identity">
+          <h3>Signed in as</h3>
+          <div class="identity-name" id="user-name">—</div>
+          <div class="identity-sub" id="user-sub">—</div>
+          <div class="identity-roles" id="user-roles"></div>
+          <button class="link-btn" id="logout-btn">sign out</button>
+        </div>
+
+        <div class="card balance">
+          <h3>Player balance</h3>
+          <div class="balance-amount" id="balance-amount">$0.00</div>
+          <div class="balance-detail" id="balance-detail">—</div>
+          <button class="refresh-btn" data-action="refresh-balance">refresh</button>
+        </div>
+
+        <div class="card cb-status">
+          <h3>Circuit breakers</h3>
+          <div id="cb-list" class="cb-list"></div>
+          <p class="muted small">CB6 = illegal-flow detection (active). CB1–5/7 land in M2/M5/M10.</p>
+        </div>
+      </section>
+
+      <!-- Action panel -->
+      <section class="card actions">
+        <h3>Try the Financial Core</h3>
+        <p class="muted">Each button calls a real <code>/api/v1/</code> endpoint and updates the views below.</p>
+        <div class="action-grid">
+          <button data-action="deposit" class="primary">
+            <span class="btn-title">Deposit $100 USDT</span>
+            <span class="btn-sub">POST /internal/deposit/credit (20-block confirm simulated)</span>
+          </button>
+
+          <button data-action="settle-round">
+            <span class="btn-title">Settle a hand</span>
+            <span class="btn-sub">POST /internal/settle-round (you win against bob)</span>
+          </button>
+
+          <button data-action="illegal-flow" class="danger">
+            <span class="btn-title">Try an illegal transfer (CB6 demo)</span>
+            <span class="btn-sub">PLAYER → REINSURANCE — CB6 alert fires within 5s</span>
+          </button>
+
+          <button data-action="create-withdrawal">
+            <span class="btn-title">Request $25 withdrawal</span>
+            <span class="btn-sub">POST /me/withdrawals (state: REQUESTED)</span>
+          </button>
+
+          <button data-action="approve-withdrawal" class="ops-only">
+            <span class="btn-title">Approve oldest pending (ops)</span>
+            <span class="btn-sub">POST /ops/withdrawals/:id/approve</span>
+          </button>
+
+          <button data-action="broadcast-withdrawal" class="ops-only">
+            <span class="btn-title">Mark broadcasting (ops)</span>
+            <span class="btn-sub">POST /ops/withdrawals/:id/broadcast</span>
+          </button>
+
+          <button data-action="confirm-withdrawal" class="ops-only">
+            <span class="btn-title">Mark confirmed (ops)</span>
+            <span class="btn-sub">POST /ops/withdrawals/:id/confirm — ledger PENDING → SETTLED</span>
+          </button>
+
+          <button data-action="fail-withdrawal" class="ops-only danger">
+            <span class="btn-title">Mark failed + auto-refund (ops)</span>
+            <span class="btn-sub">POST /ops/withdrawals/:id/fail — refund ledger entry</span>
+          </button>
+        </div>
+      </section>
+
+      <!-- Ledger + Withdrawal feed -->
+      <section class="grid two-col">
+        <div class="card ledger-feed">
+          <h3>Recent ledger entries</h3>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Time</th>
+                  <th>Type</th>
+                  <th>Amount</th>
+                  <th>Direction</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="ledger-rows"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="card withdrawal-feed">
+          <h3>Withdrawals</h3>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Created</th>
+                  <th>Amount</th>
+                  <th>State</th>
+                  <th>ID</th>
+                </tr>
+              </thead>
+              <tbody id="withdrawal-rows"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- Activity log -->
+      <section class="card activity">
+        <h3>Activity log</h3>
+        <div id="activity-log" class="activity-log"></div>
+      </section>
+    </main>
+
+    <script src="/app.js"></script>
+  </body>
+</html>

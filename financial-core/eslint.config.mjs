@@ -6,7 +6,7 @@ import globals from 'globals';
 
 export default tseslint.config(
   {
-    ignores: ['dist/', 'node_modules/', 'coverage/', 'data/', 'mongo-rs/'],
+    ignores: ['dist/', 'node_modules/', 'coverage/', 'data/', 'mongo-rs/', 'public/'],
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,
@@ -37,7 +37,7 @@ export default tseslint.config(
     },
   },
   {
-    files: ['test/**/*.ts', '**/*.test.ts', '**/*.spec.ts'],
+    files: ['test/**/*.ts', 'scripts/**/*.ts', '**/*.test.ts', '**/*.spec.ts'],
     rules: {
       '@typescript-eslint/no-explicit-any': 'off',
       '@typescript-eslint/explicit-function-return-type': 'off',

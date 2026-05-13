@@ -6,6 +6,12 @@ Direct DB writes to balance fields are prohibited.
 
 **API contract:** [docs/api-v1.md](docs/api-v1.md) — frontend / game-server build Mocks against this.
 
+**M1 close-out documents:**
+- [docs/m1-acceptance.md](docs/m1-acceptance.md) — single-page status of every M1 acceptance item.
+- [docs/m1-schema-review.md](docs/m1-schema-review.md) — schema-review packet (your sign-off goes here).
+- [docs/m1-deferred-items.md](docs/m1-deferred-items.md) — what we knowingly punted to later milestones.
+- [docs/m1-runbook.md](docs/m1-runbook.md) — step-by-step for the user-side tasks.
+
 > Iron rule from spec: **NO module may bypass `transfer()`. NO `UPDATE accounts SET balance = ...`. ALL flows go through the hardcoded `ClearingRules` whitelist.**
 
 ## What lives here
@@ -40,9 +46,26 @@ npm install
 Tests use `mongodb-memory-server`'s in-process Replica Set — no Docker or local Mongo required. The first run downloads a Mongo binary (~120 MB) and caches it.
 
 ```bash
-npm test                               # runs the full suite
+npm test                               # runs the full suite (217 tests across 17 suites)
 npm run test:coverage
 ```
+
+### Run the smoke test (end-to-end demo)
+
+```bash
+npm run smoke                          # boots in-process Mongo + HTTP server, walks the full M1 journey
+```
+
+Output: 34 PASS/FAIL steps covering deposit, settlement, CB6 illegal-flow detection, full withdrawal lifecycle (approve → broadcast → confirm), and the failure → rollback path. Takes ~5 seconds.
+
+### Open the demo UI
+
+```bash
+npm run mongo:rs:start                 # bring up Mongo + Redis (requires Docker)
+npm run dev                            # boots the FC server on http://localhost:3000
+```
+
+Open <http://localhost:3000> in a browser. Sign in as `alice` / `demo` (player), `ops` / `demo` (ops), or `admin` / `demo`. Click the buttons to exercise every M1 capability live.
 
 ### Run the dev server (needs MongoDB + Redis)
 

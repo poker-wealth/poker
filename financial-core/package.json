@@ -24,6 +24,7 @@
     "test:coverage": "jest --coverage --runInBand",
     "mongo:rs:start": "node scripts/mongo-rs-start.mjs",
     "mongo:rs:stop": "node scripts/mongo-rs-stop.mjs",
+    "smoke": "tsx scripts/smoke.ts",
     "ci": "npm run lint && npm run typecheck && npm run test"
   },
   "dependencies": {

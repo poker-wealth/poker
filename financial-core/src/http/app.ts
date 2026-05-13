@@ -1,3 +1,4 @@
+import path from 'node:path';
 import express, {
   type ErrorRequestHandler,
   type Express,
@@ -5,11 +6,13 @@ import express, {
   type Request,
   type Response,
 } from 'express';
+import { loadEnv } from '../config/env.js';
 import { logger } from '../lib/logger.js';
 import { dataScopeMiddleware } from '../security/data-scope-middleware.js';
 import { bigIntJsonReplacer, toProblemDetails } from './error-model.js';
 import { internalAuthMiddleware } from './internal-auth-middleware.js';
 import { adminRouter } from './routes/admin.js';
+import { demoRouter } from './routes/demo.js';
 import { healthRouter } from './routes/health.js';
 import { internalRouter } from './routes/internal.js';
 import { meRouter } from './routes/me.js';
@@ -54,7 +57,21 @@ export function buildApp(): Express {
   // Server-to-server.
   v1.use('/internal', internalAuthMiddleware, internalRouter);
 
+  // Demo-only (non-production).
+  const env = loadEnv();
+  if (env.NODE_ENV !== 'production') {
+    v1.use('/demo', demoRouter);
+  }
+
   app.use('/api/v1', v1);
+
+  // Static demo UI — served at GET / when NODE_ENV !== 'production'.
+  // Resolve from package root rather than __dirname so this works under
+  // both `tsx watch src/index.ts` (project root cwd) and built dist/ output.
+  if (env.NODE_ENV !== 'production') {
+    const publicDir = path.resolve(process.cwd(), 'public');
+    app.use(express.static(publicDir, { index: 'index.html' }));
+  }
 
   // 404 fallback.
   app.use((req: Request, res: Response) => {
