@@ -1,18 +1,20 @@
 import { loadEnv } from './config/env.js';
 import { logger } from './lib/logger.js';
+import { buildServer } from './server.js';
 
 async function main(): Promise<void> {
   const env = loadEnv();
-  logger.info({ port: env.PORT, env: env.NODE_ENV }, 'game-server booting');
+  const { http } = buildServer(env);
+  http.listen(env.PORT, () => {
+    logger.info({ port: env.PORT, env: env.NODE_ENV }, 'game-server listening (HTTP + WebSocket)');
+  });
 
-  // Subsequent M2 wiring:
-  //   - WebSocket server (Socket.io: game state + chat namespaces)
-  //   - RoomManager + active Texas Hold'em tables
-  //   - HTTP layer for game lifecycle
-  //   - drand client + KMS wired into Commit-Reveal
-  //   - FC HTTP client for settlement / insurance
-
-  logger.warn('game-server boot stub — runtime wiring lands in later M2 commits');
+  const shutdown = (signal: string): void => {
+    logger.info({ signal }, 'shutdown signal received');
+    http.close(() => process.exit(0));
+  };
+  process.on('SIGINT', () => shutdown('SIGINT'));
+  process.on('SIGTERM', () => shutdown('SIGTERM'));
 }
 
 main().catch((err) => {
