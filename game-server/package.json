@@ -15,6 +15,7 @@
     "start": "node dist/index.js",
     "dev": "tsx watch src/index.ts",
     "fairness:demo": "tsx scripts/fairness-demo.ts",
+    "texas:demo": "tsx scripts/texas-demo.ts",
     "lint": "eslint . --max-warnings=0",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",

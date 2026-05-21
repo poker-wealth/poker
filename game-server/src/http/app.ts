@@ -1,3 +1,4 @@
+import path from 'node:path';
 import express, {
   type ErrorRequestHandler,
   type Express,
@@ -7,6 +8,7 @@ import express, {
 } from 'express';
 import { z } from 'zod';
 import { logger } from '../lib/logger.js';
+import { verifyReveal } from '../provably-fair/verification.js';
 import type { GameService } from '../runtime/game-service.js';
 import { PlayerAlreadySeatedError, RoomNotFoundError } from '../state-machine/room-manager.js';
 
@@ -165,7 +167,27 @@ export function buildGameApp(gameService: GameService): Express {
     }),
   );
 
+  // Public provably-fair verification: re-derive the deck from the revealed
+  // seed and run the 5-step check. Available once a round has SETTLED.
+  v1.get(
+    '/verify/:roundId',
+    asyncHandler(async (req, res) => {
+      const roundId = req.params.roundId as string;
+      const reveal = gameService.getRevealReceipt(roundId);
+      if (!reveal) {
+        res.status(404).json({ code: 'REVEAL_NOT_AVAILABLE', detail: 'unknown round or hand not yet settled' });
+        return;
+      }
+      const verification = verifyReveal(reveal);
+      const commit = gameService.getCommit(roundId);
+      res.json({ round_id: roundId, reveal, verification, commit });
+    }),
+  );
+
   app.use('/api/v1', v1);
+
+  // Static verification page (served at /verify.html).
+  app.use(express.static(path.resolve(process.cwd(), 'public')));
 
   app.use((req: Request, res: Response) => {
     res.status(404).json({ code: 'NOT_FOUND', detail: `${req.method} ${req.path}` });

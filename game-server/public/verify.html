@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>FairPlay — Provably-Fair Verification</title>
+    <style>
+      :root {
+        --bg: #0e1116; --card: #161b22; --border: #2a3140; --text: #d4dae3;
+        --muted: #7d8690; --accent: #58a6ff; --green: #56d364; --red: #ff7b72; --dim: #4f5863;
+        --mono: ui-monospace, Menlo, Consolas, monospace;
+      }
+      * { box-sizing: border-box; }
+      body { margin: 0; background: var(--bg); color: var(--text);
+        font-family: -apple-system, "Segoe UI", Roboto, sans-serif; font-size: 14px; }
+      header { padding: 16px 24px; border-bottom: 1px solid var(--border); background: var(--card); }
+      .brand { font-size: 18px; font-weight: 700; color: var(--accent); }
+      .tag { font-size: 12px; color: var(--muted); }
+      main { max-width: 820px; margin: 24px auto; padding: 0 16px; }
+      .card { background: var(--card); border: 1px solid var(--border); border-radius: 6px; padding: 18px; margin-bottom: 16px; }
+      h2 { font-size: 14px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 12px; }
+      input { background: #0d1117; border: 1px solid var(--border); border-radius: 4px; color: var(--text);
+        padding: 9px 11px; font-size: 14px; font-family: var(--mono); width: 320px; max-width: 100%; }
+      button { background: var(--accent); color: #0d1117; border: none; padding: 9px 18px;
+        border-radius: 4px; font-weight: 600; cursor: pointer; margin-left: 8px; }
+      button:hover { filter: brightness(1.1); }
+      .muted { color: var(--muted); } .small { font-size: 12px; }
+      .check { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid #1a1f29; }
+      .check:last-child { border-bottom: none; }
+      .tag-pass { color: var(--green); } .tag-fail { color: var(--red); } .tag-skip { color: var(--dim); }
+      .badge { font-family: var(--mono); font-size: 11px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--border); }
+      .verdict { font-size: 18px; font-weight: 700; margin-top: 14px; }
+      .kv { font-family: var(--mono); font-size: 12px; word-break: break-all; }
+      .kv span { color: var(--muted); }
+      pre { background: #0d1117; border: 1px solid var(--border); border-radius: 4px; padding: 12px;
+        overflow-x: auto; font-size: 12px; }
+      .hidden { display: none; }
+      a { color: var(--accent); }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="brand">FairPlay</div>
+      <div class="tag">Provably-Fair Hand Verification</div>
+    </header>
+    <main>
+      <div class="card">
+        <h2>Verify a hand</h2>
+        <p class="muted small">
+          Enter a settled round id. We re-derive the deck from the revealed seed and run the
+          5-step verification. Anyone can do this independently — the deal cannot be faked.
+        </p>
+        <div>
+          <input id="round" placeholder="round id, e.g. r-demo-1" />
+          <button id="go">Verify</button>
+        </div>
+        <div id="error" class="small" style="color: var(--red); margin-top: 10px;"></div>
+      </div>
+
+      <div id="result" class="card hidden">
+        <h2>Verification result</h2>
+        <div id="checks"></div>
+        <div id="verdict" class="verdict"></div>
+        <div id="commit" class="kv small" style="margin-top: 12px;"></div>
+      </div>
+
+      <div id="revealCard" class="card hidden">
+        <h2>Reveal data (the inputs)</h2>
+        <pre id="reveal"></pre>
+      </div>
+    </main>
+
+    <script>
+      const $ = (s) => document.querySelector(s);
+      const LABELS = {
+        v1_commit: 'V1 — server seed matches the pre-published commit',
+        v2_drand: 'V2 — drand randomness matches the public beacon',
+        v3_shuffle: 'V3 — re-shuffling the seed reproduces the exact deck',
+        v4_onchain: 'V4 — on-chain timestamp precedes the deal',
+        v5_probability_table: 'V5 — probability-table hash matches public config',
+      };
+      function badge(status) {
+        const cls = status === 'pass' ? 'tag-pass' : status === 'fail' ? 'tag-fail' : 'tag-skip';
+        return '<span class="badge ' + cls + '">' + status.toUpperCase() + '</span>';
+      }
+      async function verify() {
+        const id = $('#round').value.trim();
+        $('#error').textContent = '';
+        $('#result').classList.add('hidden');
+        $('#revealCard').classList.add('hidden');
+        if (!id) { $('#error').textContent = 'enter a round id'; return; }
+        const res = await fetch('/api/v1/verify/' + encodeURIComponent(id));
+        const body = await res.json();
+        if (!res.ok) { $('#error').textContent = body.detail || 'verification unavailable'; return; }
+
+        const checks = body.verification.checks;
+        $('#checks').innerHTML = Object.keys(LABELS)
+          .map((k) => '<div class="check">' + badge(checks[k]) + '<span>' + LABELS[k] + '</span></div>')
+          .join('');
+        $('#verdict').innerHTML = body.verification.ok
+          ? '<span class="tag-pass">✓ HAND VERIFIED FAIR</span>'
+          : '<span class="tag-fail">✗ VERIFICATION FAILED</span>';
+        if (body.commit) {
+          $('#commit').innerHTML = '<span>anchored on:</span> ' + body.commit.chainUsed +
+            ' &nbsp; <span>ref:</span> ' + body.commit.reference;
+        } else {
+          $('#commit').innerHTML = '<span class="muted">on-chain commit pending or disabled</span>';
+        }
+        $('#reveal').textContent = JSON.stringify(body.reveal, null, 2);
+        $('#result').classList.remove('hidden');
+        $('#revealCard').classList.remove('hidden');
+      }
+      $('#go').addEventListener('click', verify);
+      $('#round').addEventListener('keydown', (e) => { if (e.key === 'Enter') verify(); });
+    </script>
+  </body>
+</html>
