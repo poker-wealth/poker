@@ -160,6 +160,25 @@ export class TexasHoldem extends BaseGame<unknown, unknown> {
     p.stack += amount;
   }
 
+  /**
+   * Reconcile the table stack with the house cut FC took at settlement.
+   * The engine credits the winner the full pot (no rake); FC then deducts
+   * rake + jackpot. This reduces the winner's in-memory stack to match the
+   * winner's real FC balance. Only valid in SETTLED state.
+   */
+  applyHouseCut(playerId: string, amountCents: bigint): void {
+    if (this.sm.current !== 'SETTLED') throw new Error('applyHouseCut: only valid in SETTLED');
+    if (amountCents < 0n) throw new Error('applyHouseCut: amount must be >= 0');
+    const p = this.requirePlayer(playerId);
+    if (amountCents > p.stack) throw new Error('applyHouseCut: cut exceeds stack');
+    p.stack -= amountCents;
+  }
+
+  /** Read a player's current table stack (cents). */
+  stackOf(playerId: string): bigint {
+    return this.requirePlayer(playerId).stack;
+  }
+
   override canStart(): boolean {
     const funded = [...this.players.values()].filter((p) => p.stack > 0n);
     return (
