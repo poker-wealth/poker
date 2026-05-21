@@ -1,5 +1,5 @@
 import type { HandResult } from '../games/texas/texas-holdem.js';
-import type { SettleRoundRequest } from './fc-client.js';
+import type { SettlePotsRequest, SettleRoundRequest } from './fc-client.js';
 
 /**
  * Translates a Texas HandResult into the Financial Core settle-round request.
@@ -70,5 +70,32 @@ export function buildSettleRoundRequest(
     winner_profit: winnerProfit.toString(),
     rake_amount: policy.rakeCents.toString(),
     losers,
+  };
+}
+
+/**
+ * Build the multi-winner settle-pots request. Works for ANY number of winners
+ * (single, split, side pots) — the engine's per-player `net` deltas already
+ * conserve chips (sum to 0), which is exactly what settlePots consumes.
+ *
+ * Only players who participated (committed > 0) are included. The house cut
+ * (rakeCents + the 0.5% jackpot computed by FC) must not exceed total winner
+ * profit — FC validates this.
+ */
+export function buildSettlePotsRequest(
+  result: HandResult,
+  policy: SettlementPolicy,
+): SettlePotsRequest {
+  const participants = result.players.filter((p) => p.committed > 0n);
+  if (participants.length < 2) {
+    throw new Error('buildSettlePotsRequest: need at least two participants');
+  }
+  return {
+    round_id: result.roundId,
+    table_id: result.tableId,
+    table_type: policy.tableType,
+    league_id: policy.leagueId ?? null,
+    rake_amount: policy.rakeCents.toString(),
+    net_deltas: participants.map((p) => ({ owner_id: p.playerId, net: p.net.toString() })),
   };
 }

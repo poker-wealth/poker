@@ -51,6 +51,15 @@ export interface SettleRoundRequest {
   losers: Array<{ owner_id: string; contribution: string }>;
 }
 
+export interface SettlePotsRequest {
+  round_id: string;
+  table_id: string;
+  table_type: 'PLATFORM' | 'LEAGUE';
+  league_id?: string | null;
+  rake_amount: string;
+  net_deltas: Array<{ owner_id: string; net: string; wallet_scope?: string }>;
+}
+
 export interface DepositCreditRequest {
   player_id: string;
   amount: string;
@@ -100,6 +109,11 @@ export class FcClient {
 
   async settleRound(req: SettleRoundRequest, idempotencyKey?: string): Promise<unknown> {
     return this.request('POST', '/api/v1/internal/settle-round', req, true, idempotencyKey);
+  }
+
+  /** Multi-winner settlement (split / side pots). */
+  async settlePots(req: SettlePotsRequest, idempotencyKey?: string): Promise<unknown> {
+    return this.request('POST', '/api/v1/internal/settle-pots', req, true, idempotencyKey);
   }
 
   async creditDeposit(req: DepositCreditRequest): Promise<unknown> {

@@ -1,6 +1,7 @@
 import { FcClient, FcError, type FetchFn } from '../../src/fc-client/fc-client';
 import {
   MultiWinnerSettlementError,
+  buildSettlePotsRequest,
   buildSettleRoundRequest,
 } from '../../src/fc-client/settlement-adapter';
 import type { HandResult } from '../../src/games/texas/texas-holdem';
@@ -128,7 +129,7 @@ describe('fc-client/settlement-adapter', () => {
     expect(req.league_id).toBe('league-7');
   });
 
-  it('throws MultiWinnerSettlementError for split/side-pot hands (flagged M1 gap)', () => {
+  it('throws MultiWinnerSettlementError for split/side-pot hands (single-winner adapter)', () => {
     const split: HandResult = {
       ...singleWinnerResult(),
       winners: ['alice', 'bob'],
@@ -136,5 +137,47 @@ describe('fc-client/settlement-adapter', () => {
     expect(() => buildSettleRoundRequest(split, { tableType: 'PLATFORM', rakeCents: 0n })).toThrow(
       MultiWinnerSettlementError,
     );
+  });
+
+  it('buildSettlePotsRequest maps engine net deltas (any winner count)', () => {
+    const split: HandResult = {
+      ...singleWinnerResult(),
+      winners: ['alice', 'bob'],
+      players: [
+        { playerId: 'alice', startStack: 10_000n, endStack: 10_100n, net: 100n, committed: 100n, folded: false },
+        { playerId: 'bob', startStack: 10_000n, endStack: 10_100n, net: 100n, committed: 100n, folded: false },
+        { playerId: 'carol', startStack: 10_000n, endStack: 9_800n, net: -200n, committed: 200n, folded: false },
+      ],
+    };
+    const req = buildSettlePotsRequest(split, { tableType: 'PLATFORM', rakeCents: 5n });
+    expect(req.rake_amount).toBe('5');
+    expect(req.net_deltas).toEqual([
+      { owner_id: 'alice', net: '100' },
+      { owner_id: 'bob', net: '100' },
+      { owner_id: 'carol', net: '-200' },
+    ]);
+    // Net deltas must sum to zero (chip conservation).
+    const sum = req.net_deltas.reduce((s, d) => s + BigInt(d.net), 0n);
+    expect(sum).toBe(0n);
+  });
+
+  it('settlePots client method posts to /internal/settle-pots', async () => {
+    const { fetchFn, calls } = mockFetch(() => ({ ok: true, status: 200, body: { winners: ['a'], replayed: false } }));
+    const client = new FcClient({ baseUrl: 'http://fc:3000', internalToken: 'tok', fetchFn });
+    await client.settlePots(
+      {
+        round_id: 'r1',
+        table_id: 't1',
+        table_type: 'PLATFORM',
+        rake_amount: '0',
+        net_deltas: [
+          { owner_id: 'a', net: '100' },
+          { owner_id: 'b', net: '-100' },
+        ],
+      },
+      'settle:r1',
+    );
+    expect(calls[0]!.url).toBe('http://fc:3000/api/v1/internal/settle-pots');
+    expect(calls[0]!.headers['Idempotency-Key']).toBe('settle:r1');
   });
 });

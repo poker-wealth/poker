@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { ACCOUNT_TYPES } from '../../domain/account-types.js';
 import { LEDGER_STATUSES, LEDGER_TYPES } from '../../domain/ledger-types.js';
 import { creditDeposit } from '../../deposit/deposit-credit.js';
+import { settlePots, type SettlePotsReceipt } from '../../settlement/settle-pots.js';
 import { settleRound, type SettleRoundReceipt } from '../../settlement/settlement-engine.js';
 import { transfer } from '../../wallet/transfer.js';
 
@@ -73,6 +74,48 @@ internalRouter.post(
     });
     if (receipt.replayed) res.set('x-idempotent-replay', 'true');
     res.json(serializeReceipt(receipt));
+  }),
+);
+
+// ─── POST /api/v1/internal/settle-pots (multi-winner: split / side pots) ─
+const settlePotsSchema = z.object({
+  round_id: z.string().min(1),
+  table_id: z.string().min(1),
+  table_type: z.enum(['PLATFORM', 'LEAGUE']),
+  league_id: z.string().min(1).nullable().optional(),
+  rake_amount: z
+    .union([z.string(), z.number()])
+    .transform((v) => BigInt(typeof v === 'number' ? Math.floor(v) : v))
+    .refine((b) => b >= 0n, 'rake_amount must be >= 0'),
+  net_deltas: z
+    .array(
+      z.object({
+        owner_id: z.string().min(1),
+        net: z.union([z.string(), z.number()]).transform((v) => BigInt(typeof v === 'number' ? Math.floor(v) : v)),
+        wallet_scope: z.string().min(1).optional(),
+      }),
+    )
+    .min(2),
+});
+
+internalRouter.post(
+  '/settle-pots',
+  asyncHandler(async (req, res) => {
+    const body = settlePotsSchema.parse(req.body);
+    const receipt = await settlePots({
+      roundId: body.round_id,
+      tableId: body.table_id,
+      tableType: body.table_type,
+      leagueId: body.league_id ?? undefined,
+      rakeAmount: body.rake_amount,
+      netDeltas: body.net_deltas.map((d) => ({
+        ownerId: d.owner_id,
+        net: d.net,
+        ...(d.wallet_scope !== undefined && { walletScope: d.wallet_scope }),
+      })),
+    });
+    if (receipt.replayed) res.set('x-idempotent-replay', 'true');
+    res.json(serializePotsReceipt(receipt));
   }),
 );
 
@@ -189,6 +232,31 @@ function serializeReceipt(r: SettleRoundReceipt): Record<string, unknown> {
       },
     },
     accounts: r.accounts,
+    ledger_entry_ids: r.ledgerEntryIds,
+    hash: r.hash,
+    duration_ms: r.durationMs,
+    replayed: r.replayed,
+  };
+}
+
+function serializePotsReceipt(r: SettlePotsReceipt): Record<string, unknown> {
+  return {
+    round_id: r.roundId,
+    table_id: r.tableId,
+    table_type: r.tableType,
+    league_id: r.leagueId,
+    winners: r.winners,
+    amounts: {
+      rake: r.amounts.rake,
+      gross_payout_total: r.amounts.grossPayoutTotal,
+      jackpot: {
+        mini: r.amounts.jackpot.mini,
+        minor: r.amounts.jackpot.minor,
+        major: r.amounts.jackpot.major,
+        grand: r.amounts.jackpot.grand,
+        total: r.amounts.jackpot.total,
+      },
+    },
     ledger_entry_ids: r.ledgerEntryIds,
     hash: r.hash,
     duration_ms: r.durationMs,
