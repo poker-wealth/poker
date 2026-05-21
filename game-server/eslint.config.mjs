@@ -41,6 +41,10 @@ export default tseslint.config(
     },
   },
   {
+    files: ['scripts/**/*.ts'],
+    rules: { 'no-console': 'off' },
+  },
+  {
     files: ['**/*.mjs', '**/*.js'],
     languageOptions: { sourceType: 'module', globals: { ...globals.node } },
     rules: { 'no-console': 'off', '@typescript-eslint/explicit-function-return-type': 'off' },

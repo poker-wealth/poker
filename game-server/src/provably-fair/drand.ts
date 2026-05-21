@@ -60,29 +60,23 @@ function parseDrandJson(raw: unknown, source: string): DrandResult {
   return { round: obj['round'], randomness, randomnessHex, source };
 }
 
-/**
- * Fetch the latest drand randomness. Races all endpoints; first valid wins.
- * Throws DrandTimeoutError if none answer within timeoutMs.
- */
-export async function fetchDrandLatest(opts: DrandClientOptions): Promise<DrandResult> {
+/** Shared race: fetch `path` (e.g. '/public/latest') across all endpoints. */
+async function raceEndpoints(opts: DrandClientOptions, path: string): Promise<DrandResult> {
   if (opts.urls.length === 0) throw new Error('drand: no urls configured');
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), opts.timeoutMs);
 
   const attempts = opts.urls.map(async (base) => {
-    const url = `${base.replace(/\/$/, '')}/public/latest`;
+    const url = `${base.replace(/\/$/, '')}${path}`;
     const res = await opts.fetchFn(url, { signal: controller.signal });
     if (!res.ok) throw new Error(`drand: ${url} returned ${res.status}`);
     return parseDrandJson(await res.json(), base);
   });
 
   try {
-    // Promise.any → first to FULFILL wins (ignores rejections unless all fail).
-    const result = await Promise.any(attempts);
-    return result;
+    return await Promise.any(attempts);
   } catch (err) {
-    // AggregateError when all endpoints reject (including aborts).
     if (controller.signal.aborted) throw new DrandTimeoutError(opts.timeoutMs);
     throw new Error(
       `drand: all endpoints failed — ${err instanceof AggregateError ? err.errors.map((e) => (e as Error).message).join('; ') : String(err)}`,
@@ -90,4 +84,22 @@ export async function fetchDrandLatest(opts: DrandClientOptions): Promise<DrandR
   } finally {
     clearTimeout(timer);
   }
+}
+
+/**
+ * Fetch the latest drand randomness. Races all endpoints; first valid wins.
+ * Throws DrandTimeoutError if none answer within timeoutMs.
+ */
+export async function fetchDrandLatest(opts: DrandClientOptions): Promise<DrandResult> {
+  return raceEndpoints(opts, '/public/latest');
+}
+
+/**
+ * Fetch a SPECIFIC drand round by number. This is what an independent
+ * verifier calls during V2 verification — re-fetching the exact round a hand
+ * used and confirming the randomness matches the published receipt.
+ */
+export async function fetchDrandRound(round: number, opts: DrandClientOptions): Promise<DrandResult> {
+  if (!Number.isInteger(round) || round < 0) throw new Error('drand: round must be a non-negative integer');
+  return raceEndpoints(opts, `/public/${round}`);
 }
